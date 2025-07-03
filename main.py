@@ -42,21 +42,21 @@ canvas_height = 400
 try:
     court_img = load_image(court_img_url)
     background_image = np.array(court_img)
-    canvas_width = background_image.shape[1]
-    canvas_height = background_image.shape[0]
+    canvas_height, canvas_width = background_image.shape[:2]
 except Exception as e:
     st.warning("⚠️ 축구 코트 이미지를 불러올 수 없어 기본 캔버스를 사용합니다.")
+    background_image = None  # 명확히 None 지정
 
 st.title("⚽ 축구 훈련 일지 & 코트 드로잉")
 
 st.markdown("### 오늘은 이런 훈련을 했어요? (코트 위에 자유롭게 그림)")
 
-# 캔버스
+# 안전한 background_image 전달
 canvas_result = st_canvas(
     fill_color="rgba(255, 0, 0, 0.3)",
     stroke_width=3,
     stroke_color="#000000",
-    background_image=background_image,
+    background_image=background_image if isinstance(background_image, np.ndarray) else None,
     height=canvas_height,
     width=canvas_width,
     drawing_mode="freedraw",
