@@ -45,24 +45,26 @@ img_path = os.path.join("images", "soccer_field.jpg")
 st.write(f"운영서버 이미지 경로: {img_path}")
 
 bg_image = None
+canvas_width, canvas_height = 600, 400  # 기본값
+
 try:
     if os.path.exists(img_path):
         st.write("이미지 파일 존재함.")
-        bg_image_rgba = Image.open(img_path)
-        st.write(f"원본 이미지 모드: {bg_image_rgba.mode}")
+        bg_image = Image.open(img_path)
+        st.write(f"원본 이미지 모드: {bg_image.mode}")
 
-        bg_image_rgba = bg_image_rgba.convert("RGBA")
+        bg_image = bg_image.convert("RGBA")
         st.write("RGBA 변환 완료")
 
         canvas_width = 600
-        canvas_height = int(bg_image_rgba.height * (canvas_width / bg_image_rgba.width))
+        canvas_height = int(bg_image.height * (canvas_width / bg_image.width))
         st.write(f"리사이즈 예정: {canvas_width}x{canvas_height}")
 
-        bg_image_rgba = bg_image_rgba.resize((canvas_width, canvas_height))
+        bg_image = bg_image.resize((canvas_width, canvas_height))
         st.write("리사이즈 완료")
 
-        bg_image = bg_image_rgba.convert("RGB")
-        st.write(f"RGB 변환 완료, 모드: {bg_image.mode}")
+        # RGB 변환 제거 — RGBA 유지
+        st.write(f"최종 bg_image 모드: {bg_image.mode}")
     else:
         st.error("⚠️ 배경 이미지 파일이 없습니다.")
 except Exception as e:
@@ -106,8 +108,7 @@ with st.form("entry_form"):
                 user_drawing = Image.fromarray(np.uint8(canvas_result.image_data)).convert("RGBA")
                 user_drawing = user_drawing.resize(bg_image.size)
 
-                bg_image_rgba_for_composite = bg_image.convert("RGBA")
-                final_img = Image.alpha_composite(bg_image_rgba_for_composite, user_drawing)
+                final_img = Image.alpha_composite(bg_image, user_drawing)
 
                 buffer = io.BytesIO()
                 final_img.save(buffer, format="PNG")
