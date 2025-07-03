@@ -25,7 +25,7 @@ conn.commit()
 # 이미지 로드 함수 (PIL.Image 반환)
 @st.cache_data
 def load_image_from_url(url):
-    response = requests.get(url, timeout=5)
+    response = requests.get(url)
     img = Image.open(io.BytesIO(response.content)).convert("RGBA")
     return img
 
@@ -100,4 +100,4 @@ for row in rows:
             cur.execute("DELETE FROM diary WHERE id = ?", (row[0],))
             conn.commit()
             st.success("삭제되었습니다!")
-            st.rerun()
+            st.experimental_rerun()
