@@ -14,8 +14,9 @@ is_test = query_params.get("test", ["0"])[0] == "1"
 if is_test:
     st.title("🎯 이미지 테스트 모드")
     try:
-        test_img = Image.open(os.path.join("images", "soccer_field.jpg"))
-        st.image(test_img, caption="✅ 이미지 로딩 성공", use_column_width=True)
+        test_img_path = os.path.join("images", "soccer_field.jpg")
+        test_img = Image.open(test_img_path).convert("RGBA")  # ✅ RGBA로 변환 추가
+        st.image(test_img, caption="✅ 이미지 로딩 성공 (RGBA 모드)", use_column_width=True)
     except Exception as e:
         st.error(f"❌ 이미지 로딩 실패: {e}")
     st.stop()
