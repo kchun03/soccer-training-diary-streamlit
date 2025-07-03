@@ -15,6 +15,7 @@ if is_test:
     st.title("🎯 이미지 테스트 모드")
     try:
         test_img_path = os.path.join("images", "soccer_field.jpg")
+        st.write(f"테스트모드 이미지 경로: {test_img_path}")
         test_img = Image.open(test_img_path).convert("RGBA")
         st.image(test_img, caption="✅ 이미지 로딩 성공 (RGBA 모드)", use_column_width=True)
     except Exception as e:
@@ -41,26 +42,35 @@ st.title("⚽ 이윤성 축구 훈련 일지")
 
 # 축구장 배경 이미지 로컬 경로
 img_path = os.path.join("images", "soccer_field.jpg")
+st.write(f"운영서버 이미지 경로: {img_path}")
 
-# 배경 이미지 열기 및 RGB 변환
 bg_image = None
-if os.path.exists(img_path):
-    try:
-        bg_image_rgba = Image.open(img_path).convert("RGBA")
+try:
+    if os.path.exists(img_path):
+        st.write("이미지 파일 존재함.")
+        bg_image_rgba = Image.open(img_path)
+        st.write(f"원본 이미지 모드: {bg_image_rgba.mode}")
+
+        bg_image_rgba = bg_image_rgba.convert("RGBA")
+        st.write("RGBA 변환 완료")
+
         canvas_width = 600
         canvas_height = int(bg_image_rgba.height * (canvas_width / bg_image_rgba.width))
+        st.write(f"리사이즈 예정: {canvas_width}x{canvas_height}")
+
         bg_image_rgba = bg_image_rgba.resize((canvas_width, canvas_height))
+        st.write("리사이즈 완료")
 
-        # RGBA → RGB 변환 (알파채널 제거)
         bg_image = bg_image_rgba.convert("RGB")
+        st.write(f"RGB 변환 완료, 모드: {bg_image.mode}")
+    else:
+        st.error("⚠️ 배경 이미지 파일이 없습니다.")
+except Exception as e:
+    st.error(f"⚠️ 이미지 처리 오류: {e}")
 
-    except Exception as e:
-        st.error(f"⚠️ 배경 이미지 처리 오류: {e}")
-        bg_image = None
-        canvas_width, canvas_height = 600, 400
-else:
-    st.error("⚠️ 배경 이미지 파일이 없습니다. './images/soccer_field.jpg' 위치를 확인하세요.")
-    canvas_width, canvas_height = 600, 400
+# background_image에 PIL.Image 또는 None 넘김
+background_for_canvas = bg_image if isinstance(bg_image, Image.Image) else None
+st.write(f"background_for_canvas 타입: {type(background_for_canvas)}")
 
 # 📋 일지 작성 폼
 with st.form("entry_form"):
@@ -69,16 +79,20 @@ with st.form("entry_form"):
 
     st.markdown("### ✏️ 오늘은 이런 훈련을 했어요")
 
-    canvas_result = st_canvas(
-        fill_color="rgba(255, 165, 0, 0.3)",
-        stroke_width=3,
-        stroke_color="#000000",
-        background_image=bg_image if isinstance(bg_image, Image.Image) else None,
-        height=canvas_height,
-        width=canvas_width,
-        drawing_mode="freedraw",
-        key="canvas",
-    )
+    try:
+        canvas_result = st_canvas(
+            fill_color="rgba(255, 165, 0, 0.3)",
+            stroke_width=3,
+            stroke_color="#000000",
+            background_image=background_for_canvas,
+            height=canvas_height if background_for_canvas else 400,
+            width=canvas_width if background_for_canvas else 600,
+            drawing_mode="freedraw",
+            key="canvas",
+        )
+        st.write("캔버스 정상 생성됨")
+    except Exception as e:
+        st.error(f"캔버스 생성 오류: {e}")
 
     good = st.text_area("잘한 점")
     bad = st.text_area("못한 점")
@@ -86,22 +100,24 @@ with st.form("entry_form"):
     submitted = st.form_submit_button("작성 완료")
 
     if submitted:
+        st.write("폼 제출됨")
         if canvas_result.image_data is not None and bg_image is not None:
             try:
                 user_drawing = Image.fromarray(np.uint8(canvas_result.image_data)).convert("RGBA")
                 user_drawing = user_drawing.resize(bg_image.size)
 
-                # 원본 bg_image가 RGB라서 alpha_composite는 안 됨, RGBA로 변환 후 합성
                 bg_image_rgba_for_composite = bg_image.convert("RGBA")
                 final_img = Image.alpha_composite(bg_image_rgba_for_composite, user_drawing)
 
                 buffer = io.BytesIO()
                 final_img.save(buffer, format="PNG")
                 drawing_data = buffer.getvalue()
+                st.write("이미지 합성 및 저장 성공")
             except Exception as e:
                 st.error(f"🖼️ 그림 저장 중 오류 발생: {e}")
                 drawing_data = None
         else:
+            st.write("캔버스 데이터가 없거나 배경 이미지가 없습니다.")
             drawing_data = None
 
         cur.execute(
