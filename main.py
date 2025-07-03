@@ -7,6 +7,20 @@ import numpy as np
 import io
 import os
 
+# ===================== 테스트 모드 분기 =====================
+query_params = st.experimental_get_query_params()
+is_test = query_params.get("test", ["0"])[0] == "1"
+
+if is_test:
+    st.title("🎯 이미지 테스트 모드")
+    try:
+        test_img = Image.open(os.path.join("images", "soccer_field.jpg"))
+        st.image(test_img, caption="✅ 이미지 로딩 성공", use_column_width=True)
+    except Exception as e:
+        st.error(f"❌ 이미지 로딩 실패: {e}")
+    st.stop()
+# =========================================================
+
 # DB 연결 및 테이블 생성
 conn = sqlite3.connect("diary.db", check_same_thread=False)
 cur = conn.cursor()
@@ -30,12 +44,17 @@ img_path = os.path.join("images", "soccer_field.jpg")
 # 배경 이미지 열기
 bg_image = None
 if os.path.exists(img_path):
-    bg_image = Image.open(img_path).convert("RGBA")
-    canvas_width = 600
-    canvas_height = int(bg_image.height * (canvas_width / bg_image.width))
-    bg_image = bg_image.resize((canvas_width, canvas_height))
+    try:
+        bg_image = Image.open(img_path).convert("RGBA")
+        canvas_width = 600
+        canvas_height = int(bg_image.height * (canvas_width / bg_image.width))
+        bg_image = bg_image.resize((canvas_width, canvas_height))
+    except Exception as e:
+        st.error(f"⚠️ 배경 이미지 처리 오류: {e}")
+        bg_image = None
+        canvas_width, canvas_height = 600, 400
 else:
-    st.error("⚠️ 배경 이미지 파일이 없습니다. './images/soccer_field.png' 위치를 확인하세요.")
+    st.error("⚠️ 배경 이미지 파일이 없습니다. './images/soccer_field.jpg' 위치를 확인하세요.")
     canvas_width, canvas_height = 600, 400
 
 # 📋 일지 작성 폼
@@ -50,8 +69,8 @@ with st.form("entry_form"):
         stroke_width=3,
         stroke_color="#000000",
         background_image=bg_image if bg_image else None,
-        height=canvas_height if bg_image else 400,
-        width=canvas_width if bg_image else 600,
+        height=canvas_height,
+        width=canvas_width,
         drawing_mode="freedraw",
         key="canvas",
     )
@@ -63,13 +82,17 @@ with st.form("entry_form"):
 
     if submitted:
         if canvas_result.image_data is not None and bg_image is not None:
-            user_drawing = Image.fromarray(np.uint8(canvas_result.image_data)).convert("RGBA")
-            user_drawing = user_drawing.resize(bg_image.size)
-            final_img = Image.alpha_composite(bg_image.copy(), user_drawing)
+            try:
+                user_drawing = Image.fromarray(np.uint8(canvas_result.image_data)).convert("RGBA")
+                user_drawing = user_drawing.resize(bg_image.size)
+                final_img = Image.alpha_composite(bg_image.copy(), user_drawing)
 
-            buffer = io.BytesIO()
-            final_img.save(buffer, format="PNG")
-            drawing_data = buffer.getvalue()
+                buffer = io.BytesIO()
+                final_img.save(buffer, format="PNG")
+                drawing_data = buffer.getvalue()
+            except Exception as e:
+                st.error(f"🖼️ 그림 저장 중 오류 발생: {e}")
+                drawing_data = None
         else:
             drawing_data = None
 
