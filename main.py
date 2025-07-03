@@ -14,8 +14,13 @@ def load_img(url):
 img_url = "https://m1.daumcdn.net/cfile293/image/222F6F4952E838EF11455C"
 img = load_img(img_url)
 
+buffered = io.BytesIO()
+img.save(buffered, format="PNG")
+img_b64 = base64.b64encode(buffered.getvalue()).decode()
+
 canvas_result = st_canvas(
-    background_image=img,
+    background_image=None,
+    background_image_url=f"data:image/png;base64,{img_b64}",
     height=img.height,
     width=img.width,
     stroke_width=3,
