@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS diary (
 """)
 conn.commit()
 
-st.title("⚽ 축구 훈련 일지")
+st.title("⚽ 이윤성 축구 훈련 일지")
 
 # 📋 일지 작성 폼
 with st.form("entry_form"):
