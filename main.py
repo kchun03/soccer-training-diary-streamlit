@@ -7,7 +7,6 @@ from datetime import date
 import sqlite3
 import base64
 
-# DB 초기화
 conn = sqlite3.connect("diary.db", check_same_thread=False)
 cur = conn.cursor()
 cur.execute("""
@@ -40,7 +39,8 @@ except Exception:
 st.title("⚽ 축구 훈련 일지 & 드로잉")
 st.markdown("### 축구 코트 위에 자유롭게 훈련 내용을 그림으로 표현하세요!")
 
-# background_image 가 None 일 때는 넘기지 않도록 처리
+# streamlit-drawable-canvas 최신 버전 문제 방지용으로
+# background_image 인자에 None이 아닌, PIL.Image.Image 타입만 넘기기
 canvas_kwargs = dict(
     fill_color="rgba(255, 0, 0, 0.3)",
     stroke_width=3,
@@ -50,7 +50,7 @@ canvas_kwargs = dict(
     drawing_mode="freedraw",
     key="canvas",
 )
-if court_img is not None:
+if isinstance(court_img, Image.Image):
     canvas_kwargs["background_image"] = court_img
 
 canvas_result = st_canvas(**canvas_kwargs)
