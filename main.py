@@ -1,14 +1,13 @@
 import streamlit as st
 from streamlit_drawable_canvas import st_canvas
-from datetime import date, datetime
+from datetime import date
 import sqlite3
 import base64
 from PIL import Image
 import io
-import numpy as np
 import requests
 
-# --- DB 초기화 ---
+# DB 초기화
 conn = sqlite3.connect("diary.db", check_same_thread=False)
 cur = conn.cursor()
 cur.execute("""
@@ -18,12 +17,12 @@ CREATE TABLE IF NOT EXISTS diary (
     status TEXT,
     good TEXT,
     bad TEXT,
-    drawing TEXT  -- 드로잉 이미지(base64 인코딩)
+    drawing TEXT
 )
 """)
 conn.commit()
 
-# --- 축구 코트 이미지 불러오기 (캐시) ---
+# 축구 코트 이미지 불러오기 (캐시)
 @st.cache_data
 def load_image(url):
     response = requests.get(url)
@@ -33,33 +32,34 @@ def load_image(url):
 court_img_url = "https://m1.daumcdn.net/cfile293/image/222F6F4952E838EF11455C"
 court_img = load_image(court_img_url)
 
-st.title("⚽ 축구 훈련 일지 & 훈련 코트 드로잉")
+st.title("⚽ 축구 훈련 일지 & 코트 드로잉")
 
-# --- 일지 작성 폼 ---
+st.markdown("### 오늘은 이런 훈련을 했어요? (코트 위에 자유롭게 그림)")
+
+# 캔버스 (폼 밖에 배치)
+canvas_result = st_canvas(
+    fill_color="rgba(255, 0, 0, 0.3)",
+    stroke_width=3,
+    stroke_color="#000000",
+    background_image=court_img,
+    height=court_img.height,
+    width=court_img.width,
+    drawing_mode="freedraw",
+    key="soccer_court",
+)
+
+# 일지 작성 폼
 with st.form("entry_form"):
     diary_date = st.date_input("날짜", value=date.today())
     status = st.radio("오늘 훈련은 어땠나요?", ["아주 좋았어요 😊", "괜찮았어요 🙂", "힘들었어요 😓", "별로였어요 😞"])
     good = st.text_area("잘한 점")
     bad = st.text_area("못한 점")
 
-    st.markdown("### 오늘은 이런 훈련을 했어요? (코트 위에 그림 그리기)")
-    canvas_result = st_canvas(
-        fill_color="rgba(255, 0, 0, 0.3)",  # 붉은 반투명
-        stroke_width=3,
-        stroke_color="#000000",
-        background_image=court_img,
-        height=court_img.height,
-        width=court_img.width,
-        drawing_mode="freedraw",
-        key="soccer_court",
-    )
-
     submitted = st.form_submit_button("작성 완료")
 
     if submitted:
         drawing_b64 = None
         if canvas_result.image_data is not None:
-            # numpy array -> png 이미지 -> base64 인코딩
             img = Image.fromarray(canvas_result.image_data.astype('uint8'), 'RGBA')
             buffered = io.BytesIO()
             img.save(buffered, format="PNG")
@@ -82,13 +82,10 @@ for row in rows:
     with st.expander(f"📅 {row[1]} - {row[2]}"):
         st.write(f"✅ 잘한 점: {row[3]}")
         st.write(f"❌ 못한 점: {row[4]}")
-
-        # 저장된 그림 출력
         if row[5]:
             img_bytes = base64.b64decode(row[5])
             img = Image.open(io.BytesIO(img_bytes))
             st.image(img, caption="훈련 코트 드로잉", use_column_width=True)
-
         delete = st.button("🗑️ 삭제", key=f"delete_{row[0]}")
         if delete:
             cur.execute("DELETE FROM diary WHERE id = ?", (row[0],))
