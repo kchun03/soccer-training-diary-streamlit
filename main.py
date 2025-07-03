@@ -42,14 +42,18 @@ st.title("⚽ 이윤성 축구 훈련 일지")
 # 축구장 배경 이미지 로컬 경로
 img_path = os.path.join("images", "soccer_field.jpg")
 
-# 배경 이미지 열기
+# 배경 이미지 열기 및 RGB 변환
 bg_image = None
 if os.path.exists(img_path):
     try:
-        bg_image = Image.open(img_path).convert("RGBA")
+        bg_image_rgba = Image.open(img_path).convert("RGBA")
         canvas_width = 600
-        canvas_height = int(bg_image.height * (canvas_width / bg_image.width))
-        bg_image = bg_image.resize((canvas_width, canvas_height))
+        canvas_height = int(bg_image_rgba.height * (canvas_width / bg_image_rgba.width))
+        bg_image_rgba = bg_image_rgba.resize((canvas_width, canvas_height))
+
+        # RGBA → RGB 변환 (알파채널 제거)
+        bg_image = bg_image_rgba.convert("RGB")
+
     except Exception as e:
         st.error(f"⚠️ 배경 이미지 처리 오류: {e}")
         bg_image = None
@@ -57,9 +61,6 @@ if os.path.exists(img_path):
 else:
     st.error("⚠️ 배경 이미지 파일이 없습니다. './images/soccer_field.jpg' 위치를 확인하세요.")
     canvas_width, canvas_height = 600, 400
-
-# background_image는 PIL.Image 또는 None만 넘김
-background_for_canvas = bg_image if isinstance(bg_image, Image.Image) else None
 
 # 📋 일지 작성 폼
 with st.form("entry_form"):
@@ -72,7 +73,7 @@ with st.form("entry_form"):
         fill_color="rgba(255, 165, 0, 0.3)",
         stroke_width=3,
         stroke_color="#000000",
-        background_image=background_for_canvas,
+        background_image=bg_image if isinstance(bg_image, Image.Image) else None,
         height=canvas_height,
         width=canvas_width,
         drawing_mode="freedraw",
@@ -89,7 +90,10 @@ with st.form("entry_form"):
             try:
                 user_drawing = Image.fromarray(np.uint8(canvas_result.image_data)).convert("RGBA")
                 user_drawing = user_drawing.resize(bg_image.size)
-                final_img = Image.alpha_composite(bg_image.copy(), user_drawing)
+
+                # 원본 bg_image가 RGB라서 alpha_composite는 안 됨, RGBA로 변환 후 합성
+                bg_image_rgba_for_composite = bg_image.convert("RGBA")
+                final_img = Image.alpha_composite(bg_image_rgba_for_composite, user_drawing)
 
                 buffer = io.BytesIO()
                 final_img.save(buffer, format="PNG")
@@ -116,7 +120,6 @@ rows = cur.fetchall()
 
 for row in rows:
     with st.expander(f"📅 {row[1]} - {row[2]}"):
-        # 1. 드로잉 먼저 출력
         if row[5]:
             try:
                 img = Image.open(io.BytesIO(row[5]))
@@ -126,13 +129,9 @@ for row in rows:
         else:
             st.info("✏️ 드로잉이 없습니다.")
 
-        # 2. 잘한 점
         st.markdown(f"✅ **잘한 점:**\n\n{row[3]}")
-
-        # 3. 못한 점
         st.markdown(f"❌ **못한 점:**\n\n{row[4]}")
 
-        # 삭제 버튼
         delete = st.button("🗑️ 삭제", key=f"delete_{row[0]}")
         if delete:
             cur.execute("DELETE FROM diary WHERE id = ?", (row[0],))
