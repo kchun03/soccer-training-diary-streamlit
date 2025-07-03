@@ -1,4 +1,1 @@
-streamlit==1.25.0
-streamlit-drawable-canvas==0.9.3
-requests==2.31.0
-numpy==1.26.4
+streamlit>=1.25.0
