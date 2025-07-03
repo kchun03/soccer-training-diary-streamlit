@@ -3,7 +3,6 @@ from streamlit_drawable_canvas import st_canvas
 from PIL import Image
 import requests
 import io
-import base64  # ← 이 부분 꼭 추가
 
 @st.cache_data
 def load_img(url):
@@ -15,13 +14,8 @@ def load_img(url):
 img_url = "https://m1.daumcdn.net/cfile293/image/222F6F4952E838EF11455C"
 img = load_img(img_url)
 
-buffered = io.BytesIO()
-img.save(buffered, format="PNG")
-img_b64 = base64.b64encode(buffered.getvalue()).decode()
-
 canvas_result = st_canvas(
-    background_image=None,
-    background_image_url=f"data:image/png;base64,{img_b64}",
+    background_image=img,   # 여기 PIL 이미지 직접 넣기
     height=img.height,
     width=img.width,
     stroke_width=3,
