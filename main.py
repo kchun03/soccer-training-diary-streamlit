@@ -23,29 +23,42 @@ CREATE TABLE IF NOT EXISTS diary (
 """)
 conn.commit()
 
-# 축구 코트 이미지 불러오기 (캐시)
+# 이미지 로드 함수
 @st.cache_data
 def load_image(url):
-    response = requests.get(url)
+    response = requests.get(url, timeout=5)
     img = Image.open(io.BytesIO(response.content)).convert("RGBA")
     return img
 
+# 축구 코트 이미지 URL
 court_img_url = "https://m1.daumcdn.net/cfile293/image/222F6F4952E838EF11455C"
-court_img = load_image(court_img_url)
-background_image = np.array(court_img)
+
+# 이미지 로드 및 예외 처리
+court_img = None
+background_image = None
+canvas_width = 700
+canvas_height = 400
+
+try:
+    court_img = load_image(court_img_url)
+    background_image = np.array(court_img)
+    canvas_width = background_image.shape[1]
+    canvas_height = background_image.shape[0]
+except Exception as e:
+    st.warning("⚠️ 축구 코트 이미지를 불러올 수 없어 기본 캔버스를 사용합니다.")
 
 st.title("⚽ 축구 훈련 일지 & 코트 드로잉")
 
 st.markdown("### 오늘은 이런 훈련을 했어요? (코트 위에 자유롭게 그림)")
 
-# 캔버스 (폼 밖에 배치)
+# 캔버스
 canvas_result = st_canvas(
     fill_color="rgba(255, 0, 0, 0.3)",
     stroke_width=3,
     stroke_color="#000000",
     background_image=background_image,
-    height=background_image.shape[0],
-    width=background_image.shape[1],
+    height=canvas_height,
+    width=canvas_width,
     drawing_mode="freedraw",
     key="soccer_court",
 )
@@ -74,6 +87,7 @@ with st.form("entry_form"):
         conn.commit()
         st.success("✅ 일지가 저장되었습니다!")
 
+# 일지 목록 출력
 st.markdown("---")
 st.subheader("📋 작성된 훈련 일지")
 
