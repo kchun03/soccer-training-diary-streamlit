@@ -6,7 +6,6 @@ from PIL import Image
 import numpy as np
 import io
 import os
-import platform  # 추가
 
 # ===================== 테스트 모드 분기 =====================
 query_params = st.experimental_get_query_params()
@@ -45,26 +44,22 @@ img_path = os.path.join("images", "soccer_field.jpg")
 
 # 배경 이미지 열기
 bg_image = None
-bg_image_np = None
 if os.path.exists(img_path):
     try:
         bg_image = Image.open(img_path).convert("RGBA")
         canvas_width = 600
         canvas_height = int(bg_image.height * (canvas_width / bg_image.width))
         bg_image = bg_image.resize((canvas_width, canvas_height))
-        bg_image_np = np.array(bg_image)
     except Exception as e:
         st.error(f"⚠️ 배경 이미지 처리 오류: {e}")
+        bg_image = None
         canvas_width, canvas_height = 600, 400
 else:
     st.error("⚠️ 배경 이미지 파일이 없습니다. './images/soccer_field.jpg' 위치를 확인하세요.")
     canvas_width, canvas_height = 600, 400
 
-# OS에 따라 배경 이미지 타입 분기 (로컬 Windows는 PIL.Image, 그 외는 numpy array)
-if platform.system() == "Windows":
-    background_for_canvas = bg_image  # 로컬에서 PIL.Image 사용
-else:
-    background_for_canvas = bg_image_np  # 클라우드 등에서 numpy array 사용
+# background_image는 PIL.Image 또는 None만 넘김
+background_for_canvas = bg_image if isinstance(bg_image, Image.Image) else None
 
 # 📋 일지 작성 폼
 with st.form("entry_form"):
@@ -77,7 +72,7 @@ with st.form("entry_form"):
         fill_color="rgba(255, 165, 0, 0.3)",
         stroke_width=3,
         stroke_color="#000000",
-        background_image=background_for_canvas if background_for_canvas is not None else None,
+        background_image=background_for_canvas,
         height=canvas_height,
         width=canvas_width,
         drawing_mode="freedraw",
