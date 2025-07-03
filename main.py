@@ -3,6 +3,7 @@ from streamlit_drawable_canvas import st_canvas
 from PIL import Image
 import requests
 import io
+import base64  # ← 이 부분 꼭 추가
 
 @st.cache_data
 def load_img(url):
