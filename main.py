@@ -27,32 +27,31 @@ conn.commit()
 @st.cache_data
 def load_image_from_url(url):
     response = requests.get(url, timeout=5)
-    image = Image.open(io.BytesIO(response.content)).convert("RGBA")
-    return image
+    img = Image.open(io.BytesIO(response.content)).convert("RGBA")
+    return np.array(img)
 
 # 이미지 URL
 court_img_url = "https://m1.daumcdn.net/cfile293/image/222F6F4952E838EF11455C"
 
 # 이미지 로딩
 try:
-    court_img = load_image_from_url(court_img_url)
-    canvas_width, canvas_height = court_img.size
+    court_img_array = load_image_from_url(court_img_url)
+    canvas_height, canvas_width = court_img_array.shape[:2]
 except Exception as e:
-    st.warning("⚠️ 축구 코트 이미지를 불러올 수 없습니다. 빈 캔버스를 사용합니다.")
-    court_img = None
+    st.warning("⚠️ 축구 코트 이미지를 불러올 수 없어 빈 캔버스를 사용합니다.")
+    court_img_array = None
     canvas_width = 700
     canvas_height = 400
 
 st.title("⚽ 축구 훈련 일지 & 코트 드로잉")
-
 st.markdown("### 오늘은 이런 훈련을 했어요? (코트 위에 자유롭게 그림)")
 
-# canvas 출력
+# 캔버스 출력
 canvas_result = st_canvas(
     fill_color="rgba(255, 0, 0, 0.3)",
     stroke_width=3,
     stroke_color="#000000",
-    background_image=court_img if court_img else None,
+    background_image=court_img_array if court_img_array is not None else None,
     height=canvas_height,
     width=canvas_width,
     drawing_mode="freedraw",
@@ -83,7 +82,7 @@ with st.form("entry_form"):
         conn.commit()
         st.success("✅ 일지가 저장되었습니다!")
 
-# 작성된 일지 목록 출력
+# 작성된 일지 출력
 st.markdown("---")
 st.subheader("📋 작성된 훈련 일지")
 
