@@ -49,4 +49,4 @@ for row in rows:
             cur.execute("DELETE FROM diary WHERE id = ?", (row[0],))
             conn.commit()
             st.success(f"삭제 완료: {row[1]} 일지")
-            st.experimental_rerun()  # 삭제 후 새로고침
+            st.rerun()  # 최신 Streamlit에서는 이 함수로 새로고침
