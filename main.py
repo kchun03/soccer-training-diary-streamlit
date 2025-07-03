@@ -40,16 +40,20 @@ except Exception:
 st.title("⚽ 축구 훈련 일지 & 드로잉")
 st.markdown("### 축구 코트 위에 자유롭게 훈련 내용을 그림으로 표현하세요!")
 
-canvas_result = st_canvas(
+# background_image 가 None 일 때는 넘기지 않도록 처리
+canvas_kwargs = dict(
     fill_color="rgba(255, 0, 0, 0.3)",
     stroke_width=3,
     stroke_color="#000000",
-    background_image=court_img,
     height=canvas_height,
     width=canvas_width,
     drawing_mode="freedraw",
     key="canvas",
 )
+if court_img is not None:
+    canvas_kwargs["background_image"] = court_img
+
+canvas_result = st_canvas(**canvas_kwargs)
 
 with st.form("form"):
     diary_date = st.date_input("날짜", value=date.today())
