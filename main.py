@@ -13,9 +13,10 @@ def load_img(url):
 
 img_url = "https://m1.daumcdn.net/cfile293/image/222F6F4952E838EF11455C"
 img = load_img(img_url)
+st.write(type(img))  # <class 'PIL.PngImagePlugin.PngImageFile'> 형태인지 확인
 
 canvas_result = st_canvas(
-    background_image=img,   # 여기 PIL 이미지 직접 넣기
+    background_image=img,
     height=img.height,
     width=img.width,
     stroke_width=3,
