@@ -31,17 +31,19 @@ court_img_url = "https://m1.daumcdn.net/cfile293/image/222F6F4952E838EF11455C"
 
 try:
     court_img = load_image(court_img_url)
-    canvas_width, canvas_height = court_img.size
 except Exception:
     st.warning("이미지 로드 실패, 기본 크기로 설정합니다.")
     court_img = None
+
+if court_img:
+    canvas_width, canvas_height = court_img.size
+else:
     canvas_width, canvas_height = 700, 400
 
 st.title("⚽ 축구 훈련 일지 & 드로잉")
 st.markdown("### 축구 코트 위에 자유롭게 훈련 내용을 그림으로 표현하세요!")
 
-# background_image가 None일 땐 인자에서 제외
-canvas_kwargs = dict(
+canvas_params = dict(
     fill_color="rgba(255, 0, 0, 0.3)",
     stroke_width=3,
     stroke_color="#000000",
@@ -52,9 +54,9 @@ canvas_kwargs = dict(
 )
 
 if isinstance(court_img, Image.Image):
-    canvas_kwargs["background_image"] = court_img
+    canvas_params["background_image"] = court_img
 
-canvas_result = st_canvas(**canvas_kwargs)
+canvas_result = st_canvas(**canvas_params)
 
 with st.form("form"):
     diary_date = st.date_input("날짜", value=date.today())
