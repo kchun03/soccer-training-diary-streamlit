@@ -5,6 +5,7 @@ import sqlite3
 import base64
 from PIL import Image
 import io
+import numpy as np
 import requests
 
 # DB 초기화
@@ -31,6 +32,7 @@ def load_image(url):
 
 court_img_url = "https://m1.daumcdn.net/cfile293/image/222F6F4952E838EF11455C"
 court_img = load_image(court_img_url)
+background_image = np.array(court_img)
 
 st.title("⚽ 축구 훈련 일지 & 코트 드로잉")
 
@@ -41,9 +43,9 @@ canvas_result = st_canvas(
     fill_color="rgba(255, 0, 0, 0.3)",
     stroke_width=3,
     stroke_color="#000000",
-    background_image=court_img,
-    height=court_img.height,
-    width=court_img.width,
+    background_image=background_image,
+    height=background_image.shape[0],
+    width=background_image.shape[1],
     drawing_mode="freedraw",
     key="soccer_court",
 )
