@@ -1,5 +1,6 @@
 streamlit==1.29.0
 streamlit-drawable-canvas
+streamlit-js-eval
 pillow
 numpy
 requests
