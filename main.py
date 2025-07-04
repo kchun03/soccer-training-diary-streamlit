@@ -18,15 +18,29 @@ except ImportError:
 # 페이지 설정
 st.set_page_config(page_title="훈련 일지", layout="wide")
 
-# CSS: 캔버스를 100% 반응형으로
-st.markdown("""
+# --- 꿀렁임 방지용 meta viewport와 CSS ---
+st.components.v1.html("""
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <style>
-div[data-testid="stCanvas"] canvas {
-    max-width: 100% !important;
-    height: auto !important;
-}
+    /* 전체 가로 스크롤 숨기기 */
+    html, body, .main {
+        overflow-x: hidden;
+    }
+
+    /* st_canvas 캔버스 100% 반응형 */
+    div[data-testid="stCanvas"] canvas {
+        max-width: 100% !important;
+        height: auto !important;
+    }
+
+    /* 입력 폼 텍스트 입력, 텍스트 영역 최대 너비 */
+    .stTextInput, .stTextArea {
+        max-width: 100% !important;
+        box-sizing: border-box;
+    }
 </style>
-""", unsafe_allow_html=True)
+""", height=0)
+
 
 # 버전 확인 (필요하면 주석처리 가능)
 try:
