@@ -7,14 +7,13 @@ import numpy as np
 import io
 import os
 
-# 전체 레이아웃 넓게 설정
+# 페이지 레이아웃 설정
 st.set_page_config(page_title="훈련 일지", layout="wide")
 
-# CSS로 캔버스 최대 너비 100% 지정 (반응형)
+# CSS - 캔버스 최대 너비 100%
 st.markdown(
     """
     <style>
-    /* st_canvas 내부 canvas 요소의 최대 너비를 100%로 제한 */
     div[data-testid="stCanvas"] canvas {
         max-width: 100% !important;
         height: auto !important;
@@ -24,7 +23,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# 테스트 모드 분기
+# 테스트 모드
 query_params = st.experimental_get_query_params()
 is_test = query_params.get("test", ["0"])[0] == "1"
 
@@ -32,14 +31,14 @@ if is_test:
     st.title("🎯 이미지 테스트 모드")
     try:
         test_img_path = os.path.join("images", "soccer_field.jpg")
-        st.write(f"테스트모드 이미지 경로: {test_img_path}")
+        st.write(f"✅ [TEST] 이미지 경로: {test_img_path}")
         test_img = Image.open(test_img_path).convert("RGBA").transpose(Image.ROTATE_90)
-        st.image(test_img, caption="✅ 이미지 로딩 성공 (회전 적용)", use_column_width=True)
+        st.image(test_img, caption="✅ 테스트 이미지 로딩 성공", use_column_width=True)
     except Exception as e:
-        st.error(f"❌ 이미지 로딩 실패: {e}")
+        st.error(f"❌ 테스트 이미지 로딩 실패: {e}")
     st.stop()
 
-# DB 연결 및 테이블 생성
+# DB 연결
 conn = sqlite3.connect("diary.db", check_same_thread=False)
 cur = conn.cursor()
 cur.execute("""
@@ -56,38 +55,45 @@ conn.commit()
 
 st.title("⚽ 이윤성 축구 훈련 일지")
 
-# 배경 이미지 경로
+# 이미지 경로 지정
 img_path = os.path.join("images", "soccer_field.jpg")
-st.write(f"운영서버 이미지 경로: {img_path}")
+st.write(f"📁 이미지 경로 확인: `{img_path}`")
 
 bg_image = None
-canvas_width, canvas_height = 600, 400  # 기본값
+canvas_width, canvas_height = 600, 400
 
 try:
     if os.path.exists(img_path):
-        st.write("이미지 파일 존재함.")
-        bg_image = Image.open(img_path).convert("RGBA")
-        st.write("이미지 회전 및 RGBA 변환 완료")
+        st.success("✅ 이미지 파일 존재 확인")
+        try:
+            bg_image = Image.open(img_path)
+            st.write(f"📐 원본 이미지 크기: {bg_image.size}")
+            bg_image = bg_image.convert("RGBA")
+            st.write("🔁 RGBA 변환 완료")
+        except Exception as e:
+            st.error(f"❌ 이미지 열기 실패: {e}")
+            bg_image = None
 
-        # 최대 캔버스 너비 고정
-        max_canvas_width = 800
-
-        img_ratio = bg_image.width / bg_image.height
-        canvas_width = min(max_canvas_width, bg_image.width)
-        canvas_height = int(canvas_width / img_ratio)
-
-        st.write(f"리사이즈 예정: {canvas_width}x{canvas_height}")
-        bg_image = bg_image.resize((canvas_width, canvas_height))
-        st.write("리사이즈 완료")
+        if bg_image:
+            try:
+                max_canvas_width = 800
+                img_ratio = bg_image.width / bg_image.height
+                canvas_width = min(max_canvas_width, bg_image.width)
+                canvas_height = int(canvas_width / img_ratio)
+                st.write(f"📏 캔버스 크기 설정: {canvas_width} x {canvas_height}")
+                bg_image = bg_image.resize((canvas_width, canvas_height))
+                st.success("✅ 이미지 리사이즈 완료")
+            except Exception as e:
+                st.error(f"❌ 이미지 리사이즈 실패: {e}")
     else:
-        st.error("⚠️ 배경 이미지 파일이 없습니다.")
+        st.error("⚠️ 이미지 파일이 존재하지 않습니다.")
 except Exception as e:
-    st.error(f"⚠️ 이미지 처리 오류: {e}")
+    st.error(f"❌ 이미지 처리 중 예외 발생: {e}")
 
 background_for_canvas = bg_image if isinstance(bg_image, Image.Image) else None
-st.write(f"background_for_canvas 타입: {type(background_for_canvas)}")
+st.write(f"🧾 background_for_canvas 타입: {type(background_for_canvas)}")
 
-# 일지 작성 폼
+# 작성 폼
 with st.form("entry_form"):
     diary_date = st.date_input("날짜", value=date.today())
     status = st.radio("오늘 훈련은 어땠나요?", ["아주 좋았어요 😊", "괜찮았어요 🙂", "힘들었어요 😓", "별로였어요 😞"])
@@ -106,9 +112,9 @@ with st.form("entry_form"):
             key="canvas",
             display_toolbar=True,
         )
-        st.write("캔버스 정상 생성됨")
+        st.write("🖼️ st_canvas 정상 생성됨")
     except Exception as e:
-        st.error(f"캔버스 생성 오류: {e}")
+        st.error(f"❌ st_canvas 생성 실패: {e}")
 
     good = st.text_area("잘한 점")
     bad = st.text_area("못한 점")
@@ -116,24 +122,22 @@ with st.form("entry_form"):
     submitted = st.form_submit_button("작성 완료")
 
     if submitted:
-        st.write("폼 제출됨")
+        st.write("📥 폼 제출됨")
+        drawing_data = None
         if canvas_result.image_data is not None and bg_image is not None:
             try:
                 user_drawing = Image.fromarray(np.uint8(canvas_result.image_data)).convert("RGBA")
                 user_drawing = user_drawing.resize(bg_image.size)
-
                 final_img = Image.alpha_composite(bg_image, user_drawing)
 
                 buffer = io.BytesIO()
                 final_img.save(buffer, format="PNG")
                 drawing_data = buffer.getvalue()
-                st.write("이미지 합성 및 저장 성공")
+                st.success("✅ 그림 저장 성공")
             except Exception as e:
                 st.error(f"🖼️ 그림 저장 중 오류 발생: {e}")
-                drawing_data = None
         else:
-            st.write("캔버스 데이터가 없거나 배경 이미지가 없습니다.")
-            drawing_data = None
+            st.warning("⚠️ 그림 데이터 또는 배경 이미지가 없습니다.")
 
         cur.execute(
             "INSERT INTO diary (diary_date, status, good, bad, drawing) VALUES (?, ?, ?, ?, ?)",
@@ -155,8 +159,8 @@ for row in rows:
             try:
                 img = Image.open(io.BytesIO(row[5]))
                 st.image(img, caption="오늘은 이런 훈련을 했어요", use_column_width=True)
-            except:
-                st.warning("이미지를 불러올 수 없습니다.")
+            except Exception as e:
+                st.warning(f"이미지를 불러올 수 없습니다: {e}")
         else:
             st.info("✏️ 드로잉이 없습니다.")
 
