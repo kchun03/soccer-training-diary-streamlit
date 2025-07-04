@@ -6,36 +6,38 @@ from PIL import Image
 import numpy as np
 import io
 import os
-import pkg_resources
 import socket
 import traceback
 
-# 페이지 레이아웃
+# 버전 확인용 - pkg_resources 제거하고 권장 방식으로 변경
+try:
+    from importlib.metadata import version
+except ImportError:
+    from importlib_metadata import version  # Python < 3.8 호환용
+
+# 페이지 설정
 st.set_page_config(page_title="훈련 일지", layout="wide")
 
-# CSS - 캔버스 최대 너비 100%
-st.markdown(
-    """
-    <style>
-    div[data-testid="stCanvas"] canvas {
-        max-width: 100% !important;
-        height: auto !important;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
+# CSS: 캔버스를 100% 반응형으로
+st.markdown("""
+<style>
+div[data-testid="stCanvas"] canvas {
+    max-width: 100% !important;
+    height: auto !important;
+}
+</style>
+""", unsafe_allow_html=True)
 
-# 버전 출력
+# 버전 확인
 try:
-    version = pkg_resources.get_distribution("streamlit-drawable-canvas").version
-    st.info(f"🧩 streamlit-drawable-canvas version: {version}")
+    canvas_version = version("streamlit-drawable-canvas")
+    st.info(f"🧩 streamlit-drawable-canvas version: {canvas_version}")
 except Exception as e:
-    st.warning(f"❓ streamlit-drawable-canvas 버전 확인 실패: {e}")
+    st.warning(f"❓ 버전 확인 실패: {e}")
 
-# 운영환경 판단 (도메인 또는 환경변수 등으로 조정 가능)
+# 운영환경 여부 판단 (환경 따라 수정 가능)
 hostname = socket.gethostname()
-is_prod = "streamlit" in hostname.lower()  # 운영 배포 환경 조건 예시
+is_prod = "streamlit" in hostname.lower()
 
 # 테스트 모드
 query_params = st.experimental_get_query_params()
@@ -69,7 +71,7 @@ conn.commit()
 
 st.title("⚽ 이윤성 축구 훈련 일지")
 
-# 이미지 경로
+# 이미지 경로 및 로딩
 img_path = os.path.join("images", "soccer_field.jpg")
 st.write(f"📁 이미지 경로 확인: {img_path}")
 
@@ -83,14 +85,13 @@ try:
         st.write(f"📐 원본 이미지 크기: {bg_image.size}")
         st.write("🔁 RGBA 변환 완료")
 
-        # 캔버스 크기 계산
+        # 캔버스 크기 조절
         max_canvas_width = 800
         img_ratio = bg_image.width / bg_image.height
         canvas_width = min(max_canvas_width, bg_image.width)
         canvas_height = int(canvas_width / img_ratio)
         st.write(f"📏 캔버스 크기 설정: {canvas_width} x {canvas_height}")
 
-        # 리사이즈
         bg_image = bg_image.resize((canvas_width, canvas_height))
         st.success("✅ 이미지 리사이즈 완료")
     else:
@@ -99,7 +100,7 @@ except Exception as e:
     st.error(f"❌ 이미지 처리 중 오류: {e}")
     st.text(traceback.format_exc())
 
-# 운영/로컬 환경에 따라 타입 분기
+# 운영 환경에 따라 타입 결정
 if isinstance(bg_image, Image.Image):
     background_for_canvas = np.array(bg_image) if is_prod else bg_image
 else:
@@ -162,7 +163,7 @@ with st.form("entry_form"):
         conn.commit()
         st.success("✅ 일지가 저장되었습니다!")
 
-# 작성된 일지 목록
+# 일지 리스트
 st.markdown("---")
 st.subheader("📋 작성된 훈련 일지")
 
