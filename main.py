@@ -6,8 +6,11 @@ from PIL import Image
 import numpy as np
 import io
 import os
+import pkg_resources
+import socket
+import traceback
 
-# 페이지 레이아웃 설정
+# 페이지 레이아웃
 st.set_page_config(page_title="훈련 일지", layout="wide")
 
 # CSS - 캔버스 최대 너비 100%
@@ -22,6 +25,17 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
+
+# 버전 출력
+try:
+    version = pkg_resources.get_distribution("streamlit-drawable-canvas").version
+    st.info(f"🧩 streamlit-drawable-canvas version: {version}")
+except Exception as e:
+    st.warning(f"❓ streamlit-drawable-canvas 버전 확인 실패: {e}")
+
+# 운영환경 판단 (도메인 또는 환경변수 등으로 조정 가능)
+hostname = socket.gethostname()
+is_prod = "streamlit" in hostname.lower()  # 운영 배포 환경 조건 예시
 
 # 테스트 모드
 query_params = st.experimental_get_query_params()
@@ -55,9 +69,9 @@ conn.commit()
 
 st.title("⚽ 이윤성 축구 훈련 일지")
 
-# 이미지 경로 지정
+# 이미지 경로
 img_path = os.path.join("images", "soccer_field.jpg")
-st.write(f"📁 이미지 경로 확인: `{img_path}`")
+st.write(f"📁 이미지 경로 확인: {img_path}")
 
 bg_image = None
 canvas_width, canvas_height = 600, 400
@@ -65,35 +79,35 @@ canvas_width, canvas_height = 600, 400
 try:
     if os.path.exists(img_path):
         st.success("✅ 이미지 파일 존재 확인")
-        try:
-            bg_image = Image.open(img_path)
-            st.write(f"📐 원본 이미지 크기: {bg_image.size}")
-            bg_image = bg_image.convert("RGBA")
-            st.write("🔁 RGBA 변환 완료")
-        except Exception as e:
-            st.error(f"❌ 이미지 열기 실패: {e}")
-            bg_image = None
+        bg_image = Image.open(img_path).convert("RGBA")
+        st.write(f"📐 원본 이미지 크기: {bg_image.size}")
+        st.write("🔁 RGBA 변환 완료")
 
-        if bg_image:
-            try:
-                max_canvas_width = 800
-                img_ratio = bg_image.width / bg_image.height
-                canvas_width = min(max_canvas_width, bg_image.width)
-                canvas_height = int(canvas_width / img_ratio)
-                st.write(f"📏 캔버스 크기 설정: {canvas_width} x {canvas_height}")
-                bg_image = bg_image.resize((canvas_width, canvas_height))
-                st.success("✅ 이미지 리사이즈 완료")
-            except Exception as e:
-                st.error(f"❌ 이미지 리사이즈 실패: {e}")
+        # 캔버스 크기 계산
+        max_canvas_width = 800
+        img_ratio = bg_image.width / bg_image.height
+        canvas_width = min(max_canvas_width, bg_image.width)
+        canvas_height = int(canvas_width / img_ratio)
+        st.write(f"📏 캔버스 크기 설정: {canvas_width} x {canvas_height}")
+
+        # 리사이즈
+        bg_image = bg_image.resize((canvas_width, canvas_height))
+        st.success("✅ 이미지 리사이즈 완료")
     else:
-        st.error("⚠️ 이미지 파일이 존재하지 않습니다.")
+        st.error("⚠️ 이미지 파일이 없습니다.")
 except Exception as e:
-    st.error(f"❌ 이미지 처리 중 예외 발생: {e}")
+    st.error(f"❌ 이미지 처리 중 오류: {e}")
+    st.text(traceback.format_exc())
 
-background_for_canvas = bg_image if isinstance(bg_image, Image.Image) else None
+# 운영/로컬 환경에 따라 타입 분기
+if isinstance(bg_image, Image.Image):
+    background_for_canvas = np.array(bg_image) if is_prod else bg_image
+else:
+    background_for_canvas = None
+
 st.write(f"🧾 background_for_canvas 타입: {type(background_for_canvas)}")
 
-# 작성 폼
+# 일지 작성 폼
 with st.form("entry_form"):
     diary_date = st.date_input("날짜", value=date.today())
     status = st.radio("오늘 훈련은 어땠나요?", ["아주 좋았어요 😊", "괜찮았어요 🙂", "힘들었어요 😓", "별로였어요 😞"])
@@ -115,6 +129,7 @@ with st.form("entry_form"):
         st.write("🖼️ st_canvas 정상 생성됨")
     except Exception as e:
         st.error(f"❌ st_canvas 생성 실패: {e}")
+        st.text(traceback.format_exc())
 
     good = st.text_area("잘한 점")
     bad = st.text_area("못한 점")
@@ -136,8 +151,9 @@ with st.form("entry_form"):
                 st.success("✅ 그림 저장 성공")
             except Exception as e:
                 st.error(f"🖼️ 그림 저장 중 오류 발생: {e}")
+                st.text(traceback.format_exc())
         else:
-            st.warning("⚠️ 그림 데이터 또는 배경 이미지가 없습니다.")
+            st.warning("⚠️ 드로잉 데이터 또는 배경 이미지 없음")
 
         cur.execute(
             "INSERT INTO diary (diary_date, status, good, bad, drawing) VALUES (?, ?, ?, ?, ?)",
