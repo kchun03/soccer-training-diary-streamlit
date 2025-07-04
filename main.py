@@ -38,18 +38,30 @@ st.components.v1.html("""
         max-width: 100% !important;
         box-sizing: border-box;
     }
+
+    /* 이미지 크기 조정 (일지 내 드로잉 이미지 포함) */
+    img {
+        max-width: 100% !important;
+        height: auto;
+        display: block;
+    }
+
+    /* 마크다운 텍스트 줄바꿈 강제 */
+    .css-1y4p8pa {
+        overflow-wrap: break-word;
+        word-break: break-word;
+    }
 </style>
 """, height=0)
-
 
 # 버전 확인 (필요하면 주석처리 가능)
 try:
     canvas_version = version("streamlit-drawable-canvas")
     # st.info(f"🧩 streamlit-drawable-canvas version: {canvas_version}")
 except Exception:
-    pass  # 버전 확인 실패 무시
+    pass
 
-# 운영환경 여부 판단 (환경 따라 수정 가능)
+# 운영환경 여부 판단
 hostname = socket.gethostname()
 is_prod = "streamlit" in hostname.lower()
 
@@ -84,21 +96,18 @@ conn.commit()
 
 st.title("⚽ 이윤성 축구 훈련 일지")
 
-# 이미지 경로 및 로딩
+# 이미지 로딩
 img_path = os.path.join("images", "soccer_field.jpg")
-
 bg_image = None
 canvas_width, canvas_height = 600, 400
 
 try:
     if os.path.exists(img_path):
         bg_image = Image.open(img_path).convert("RGBA")
-
         max_canvas_width = 800
         img_ratio = bg_image.width / bg_image.height
         canvas_width = min(max_canvas_width, bg_image.width)
         canvas_height = int(canvas_width / img_ratio)
-
         bg_image = bg_image.resize((canvas_width, canvas_height))
     else:
         st.error("⚠️ 이미지 파일이 없습니다.")
@@ -106,13 +115,13 @@ except Exception as e:
     st.error(f"❌ 이미지 처리 중 오류: {e}")
     st.text(traceback.format_exc())
 
-# 운영 환경에 따라 타입 결정
+# 운영 환경에 따라 캔버스 배경 이미지 타입 결정
 if isinstance(bg_image, Image.Image):
     background_for_canvas = np.array(bg_image) if is_prod else bg_image
 else:
     background_for_canvas = None
 
-# 일지 작성 폼
+# 입력 폼
 with st.form("entry_form"):
     diary_date = st.date_input("날짜", value=date.today())
     status = st.radio("오늘 훈련은 어땠나요?", ["아주 좋았어요 😊", "괜찮았어요 🙂", "힘들었어요 😓", "별로였어요 😞"])
@@ -165,7 +174,7 @@ with st.form("entry_form"):
         conn.commit()
         st.success("✅ 일지가 저장되었습니다!")
 
-# 일지 리스트
+# 작성된 일지 리스트
 st.markdown("---")
 st.subheader("📋 작성된 훈련 일지")
 
