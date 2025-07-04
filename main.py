@@ -1,5 +1,5 @@
 import streamlit as st
-from datetime import date
+from datetime import date, datetime
 import sqlite3
 from streamlit_drawable_canvas import st_canvas
 from PIL import Image
@@ -8,6 +8,7 @@ import io
 import os
 import socket
 import traceback
+from collections import defaultdict
 
 # 버전 확인용 - pkg_resources 제거하고 권장 방식으로 변경
 try:
@@ -22,31 +23,34 @@ st.set_page_config(page_title="훈련 일지", layout="wide")
 st.components.v1.html("""
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <style>
-    /* 전체 가로 스크롤 숨기기 */
     html, body, .main {
         overflow-x: hidden;
+        padding-top: 0 !important;
+        margin-top: 0 !important;
     }
-
-    /* st_canvas 캔버스 100% 반응형 */
+    section.main > div:first-child {
+        padding-top: 0rem !important;
+    }
+    header {
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+    div.block-container {
+        padding-top: 0 !important;
+    }
     div[data-testid="stCanvas"] canvas {
         max-width: 100% !important;
         height: auto !important;
     }
-
-    /* 입력 폼 텍스트 입력, 텍스트 영역 최대 너비 */
     .stTextInput, .stTextArea {
         max-width: 100% !important;
         box-sizing: border-box;
     }
-
-    /* 이미지 크기 조정 (일지 내 드로잉 이미지 포함) */
     img {
         max-width: 100% !important;
         height: auto;
         display: block;
     }
-
-    /* 마크다운 텍스트 줄바꿈 강제 */
     .css-1y4p8pa {
         overflow-wrap: break-word;
         word-break: break-word;
@@ -54,18 +58,14 @@ st.components.v1.html("""
 </style>
 """, height=0)
 
-# 버전 확인 (필요하면 주석처리 가능)
 try:
     canvas_version = version("streamlit-drawable-canvas")
-    # st.info(f"🧩 streamlit-drawable-canvas version: {canvas_version}")
 except Exception:
     pass
 
-# 운영환경 여부 판단
 hostname = socket.gethostname()
 is_prod = "streamlit" in hostname.lower()
 
-# 테스트 모드
 query_params = st.experimental_get_query_params()
 is_test = query_params.get("test", ["0"])[0] == "1"
 
@@ -79,7 +79,6 @@ if is_test:
         st.error(f"❌ 테스트 이미지 로딩 실패: {e}")
     st.stop()
 
-# DB 연결
 conn = sqlite3.connect("diary.db", check_same_thread=False)
 cur = conn.cursor()
 cur.execute("""
@@ -94,9 +93,8 @@ CREATE TABLE IF NOT EXISTS diary (
 """)
 conn.commit()
 
-st.title("⚽ 이윤성 축구 훈련 일지")
+st.markdown("""<h1 style='margin-top: 0;'>⚽ 이윤성 축구 훈련 일지</h1>""", unsafe_allow_html=True)
 
-# 이미지 로딩
 img_path = os.path.join("images", "soccer_field.jpg")
 bg_image = None
 canvas_width, canvas_height = 600, 400
@@ -115,17 +113,14 @@ except Exception as e:
     st.error(f"❌ 이미지 처리 중 오류: {e}")
     st.text(traceback.format_exc())
 
-# 운영 환경에 따라 캔버스 배경 이미지 타입 결정
 if isinstance(bg_image, Image.Image):
     background_for_canvas = np.array(bg_image) if is_prod else bg_image
 else:
     background_for_canvas = None
 
-# 입력 폼
 with st.form("entry_form"):
     diary_date = st.date_input("날짜", value=date.today())
     status = st.radio("오늘 훈련은 어땠나요?", ["아주 좋았어요 😊", "괜찮았어요 🙂", "힘들었어요 😓", "별로였어요 😞"])
-
     st.markdown("### ✏️ 오늘은 이런 훈련을 했어요")
 
     try:
@@ -138,7 +133,6 @@ with st.form("entry_form"):
             width=canvas_width,
             drawing_mode="freedraw",
             key="canvas",
-            display_toolbar=True,
         )
     except Exception as e:
         st.error(f"❌ st_canvas 생성 실패: {e}")
@@ -174,30 +168,55 @@ with st.form("entry_form"):
         conn.commit()
         st.success("✅ 일지가 저장되었습니다!")
 
-# 작성된 일지 리스트
 st.markdown("---")
 st.subheader("📋 작성된 훈련 일지")
 
 cur.execute("SELECT id, diary_date, status, good, bad, drawing FROM diary ORDER BY diary_date DESC")
 rows = cur.fetchall()
 
+grouped = defaultdict(list)
 for row in rows:
-    with st.expander(f"📅 {row[1]} - {row[2]}"):
-        if row[5]:
-            try:
-                img = Image.open(io.BytesIO(row[5]))
-                st.image(img, caption="오늘은 이런 훈련을 했어요", use_column_width=True)
-            except Exception as e:
-                st.warning(f"이미지를 불러올 수 없습니다: {e}")
-        else:
-            st.info("✏️ 드로잉이 없습니다.")
+    dt = datetime.strptime(row[1], "%Y-%m-%d")
+    ym_key = dt.strftime("%Y-%m")
+    grouped[ym_key].append(row)
 
-        st.markdown(f"✅ **잘한 점:**\n\n{row[3]}")
-        st.markdown(f"❌ **못한 점:**\n\n{row[4]}")
+for ym in sorted(grouped.keys(), reverse=True):
+    dt_obj = datetime.strptime(ym, "%Y-%m")
+    with st.expander(f"📆 {dt_obj.year}년 {dt_obj.month}월", expanded=False):
+        selected_id = None
+        for r in grouped[ym]:
+            toggle_key = f"toggle_{r[0]}"
+            if toggle_key not in st.session_state:
+                st.session_state[toggle_key] = False
 
-        delete = st.button("🗑️ 삭제", key=f"delete_{row[0]}")
-        if delete:
-            cur.execute("DELETE FROM diary WHERE id = ?", (row[0],))
-            conn.commit()
-            st.success(f"삭제 완료: {row[1]} 일지")
-            st.experimental_rerun()
+            if st.button(
+                f"{'🔽' if st.session_state[toggle_key] else '▶️'} {r[1]} - {r[2]}",
+                key=f"btn_{r[0]}"
+            ):
+                for other in grouped[ym]:
+                    if other[0] == r[0]:
+                        st.session_state[f"toggle_{other[0]}"] = not st.session_state[f"toggle_{other[0]}"]
+                    else:
+                        st.session_state[f"toggle_{other[0]}"] = False
+                st.rerun()
+
+            if st.session_state[toggle_key]:
+                st.markdown(f"#### 📅 {r[1]} - {r[2]}")
+                if r[5]:
+                    try:
+                        img = Image.open(io.BytesIO(r[5]))
+                        st.image(img, caption="오늘은 이런 훈련을 했어요", use_column_width=True)
+                    except Exception as e:
+                        st.warning(f"이미지를 불러올 수 없습니다: {e}")
+                else:
+                    st.info("✏️ 드로잉이 없습니다.")
+
+                st.markdown(f"✅ **잘한 점:**\n\n{r[3]}")
+                st.markdown(f"❌ **못한 점:**\n\n{r[4]}")
+
+                delete = st.button("🗑️ 삭제", key=f"delete_{r[0]}")
+                if delete:
+                    cur.execute("DELETE FROM diary WHERE id = ?", (r[0],))
+                    conn.commit()
+                    st.success(f"삭제 완료: {r[1]} 일지")
+                    st.experimental_rerun()
