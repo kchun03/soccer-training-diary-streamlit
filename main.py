@@ -3,9 +3,14 @@ from datetime import date
 import sqlite3
 from streamlit_drawable_canvas import st_canvas
 from PIL import Image
+from streamlit_js_eval import streamlit_js_eval
 import numpy as np
 import io
 import os
+import json
+
+# ✅ 전체 레이아웃을 넓게 설정
+st.set_page_config(page_title="훈련 일지", layout="wide")
 
 # ===================== 테스트 모드 분기 =====================
 query_params = st.experimental_get_query_params()
@@ -16,8 +21,8 @@ if is_test:
     try:
         test_img_path = os.path.join("images", "soccer_field.jpg")
         st.write(f"테스트모드 이미지 경로: {test_img_path}")
-        test_img = Image.open(test_img_path).convert("RGBA")
-        st.image(test_img, caption="✅ 이미지 로딩 성공 (RGBA 모드)", use_column_width=True)
+        test_img = Image.open(test_img_path).convert("RGBA").transpose(Image.ROTATE_90)
+        st.image(test_img, caption="✅ 이미지 로딩 성공 (회전 적용)", use_column_width=True)
     except Exception as e:
         st.error(f"❌ 이미지 로딩 실패: {e}")
     st.stop()
@@ -50,27 +55,41 @@ canvas_width, canvas_height = 600, 400  # 기본값
 try:
     if os.path.exists(img_path):
         st.write("이미지 파일 존재함.")
-        bg_image = Image.open(img_path)
-        st.write(f"원본 이미지 모드: {bg_image.mode}")
+        bg_image = Image.open(img_path).convert("RGBA").transpose(Image.ROTATE_90)
+        st.write("이미지 회전 및 RGBA 변환 완료")
 
-        bg_image = bg_image.convert("RGBA")
-        st.write("RGBA 변환 완료")
+        dims = streamlit_js_eval(js_expressions="""
+            JSON.stringify({
+                width: window.innerWidth || screen.width,
+                height: window.innerHeight || screen.height
+            })
+        """, key="viewport")
 
-        canvas_width = 600
-        canvas_height = int(bg_image.height * (canvas_width / bg_image.width))
+        try:
+            dims_json = dims[0] if isinstance(dims, list) else dims
+            dims_dict = json.loads(dims_json)
+            screen_width = int(dims_dict.get("width", 1000))
+            screen_height = int(dims_dict.get("height", 700))
+        except:
+            screen_width, screen_height = 1000, 700
+
+        st.write(f"📱 감지된 디바이스 화면 크기: {screen_width}x{screen_height}")
+
+        # 📏 이미지 원본 비율 기준으로 캔버스 크기 계산
+        img_ratio = bg_image.width / bg_image.height
+
+        max_canvas_width = int(screen_width * 0.95)  # 화면의 95%로 제한
+        canvas_width = max(300, min(max_canvas_width, bg_image.width))
+        canvas_height = int(canvas_width / img_ratio)
+
         st.write(f"리사이즈 예정: {canvas_width}x{canvas_height}")
-
         bg_image = bg_image.resize((canvas_width, canvas_height))
         st.write("리사이즈 완료")
-
-        # RGB 변환 제거 — RGBA 유지
-        st.write(f"최종 bg_image 모드: {bg_image.mode}")
     else:
         st.error("⚠️ 배경 이미지 파일이 없습니다.")
 except Exception as e:
     st.error(f"⚠️ 이미지 처리 오류: {e}")
 
-# background_image에 PIL.Image 또는 None 넘김
 background_for_canvas = bg_image if isinstance(bg_image, Image.Image) else None
 st.write(f"background_for_canvas 타입: {type(background_for_canvas)}")
 
@@ -87,10 +106,11 @@ with st.form("entry_form"):
             stroke_width=3,
             stroke_color="#000000",
             background_image=background_for_canvas,
-            height=canvas_height if background_for_canvas else 400,
-            width=canvas_width if background_for_canvas else 600,
+            height=canvas_height,
+            width=canvas_width,
             drawing_mode="freedraw",
             key="canvas",
+            display_toolbar=True,
         )
         st.write("캔버스 정상 생성됨")
     except Exception as e:
