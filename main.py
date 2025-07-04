@@ -28,12 +28,12 @@ div[data-testid="stCanvas"] canvas {
 </style>
 """, unsafe_allow_html=True)
 
-# 버전 확인
+# 버전 확인 (필요하면 주석처리 가능)
 try:
     canvas_version = version("streamlit-drawable-canvas")
-    st.info(f"🧩 streamlit-drawable-canvas version: {canvas_version}")
-except Exception as e:
-    st.warning(f"❓ 버전 확인 실패: {e}")
+    # st.info(f"🧩 streamlit-drawable-canvas version: {canvas_version}")
+except Exception:
+    pass  # 버전 확인 실패 무시
 
 # 운영환경 여부 판단 (환경 따라 수정 가능)
 hostname = socket.gethostname()
@@ -47,7 +47,6 @@ if is_test:
     st.title("🎯 이미지 테스트 모드")
     try:
         test_img_path = os.path.join("images", "soccer_field.jpg")
-        st.write(f"✅ [TEST] 이미지 경로: {test_img_path}")
         test_img = Image.open(test_img_path).convert("RGBA").transpose(Image.ROTATE_90)
         st.image(test_img, caption="✅ 테스트 이미지 로딩 성공", use_column_width=True)
     except Exception as e:
@@ -73,27 +72,20 @@ st.title("⚽ 이윤성 축구 훈련 일지")
 
 # 이미지 경로 및 로딩
 img_path = os.path.join("images", "soccer_field.jpg")
-st.write(f"📁 이미지 경로 확인: {img_path}")
 
 bg_image = None
 canvas_width, canvas_height = 600, 400
 
 try:
     if os.path.exists(img_path):
-        st.success("✅ 이미지 파일 존재 확인")
         bg_image = Image.open(img_path).convert("RGBA")
-        st.write(f"📐 원본 이미지 크기: {bg_image.size}")
-        st.write("🔁 RGBA 변환 완료")
 
-        # 캔버스 크기 조절
         max_canvas_width = 800
         img_ratio = bg_image.width / bg_image.height
         canvas_width = min(max_canvas_width, bg_image.width)
         canvas_height = int(canvas_width / img_ratio)
-        st.write(f"📏 캔버스 크기 설정: {canvas_width} x {canvas_height}")
 
         bg_image = bg_image.resize((canvas_width, canvas_height))
-        st.success("✅ 이미지 리사이즈 완료")
     else:
         st.error("⚠️ 이미지 파일이 없습니다.")
 except Exception as e:
@@ -105,8 +97,6 @@ if isinstance(bg_image, Image.Image):
     background_for_canvas = np.array(bg_image) if is_prod else bg_image
 else:
     background_for_canvas = None
-
-st.write(f"🧾 background_for_canvas 타입: {type(background_for_canvas)}")
 
 # 일지 작성 폼
 with st.form("entry_form"):
@@ -127,7 +117,6 @@ with st.form("entry_form"):
             key="canvas",
             display_toolbar=True,
         )
-        st.write("🖼️ st_canvas 정상 생성됨")
     except Exception as e:
         st.error(f"❌ st_canvas 생성 실패: {e}")
         st.text(traceback.format_exc())
@@ -138,7 +127,6 @@ with st.form("entry_form"):
     submitted = st.form_submit_button("작성 완료")
 
     if submitted:
-        st.write("📥 폼 제출됨")
         drawing_data = None
         if canvas_result.image_data is not None and bg_image is not None:
             try:
