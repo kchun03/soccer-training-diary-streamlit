@@ -3,4 +3,3 @@ streamlit-drawable-canvas
 pillow
 numpy
 requests
-git+https://github.com/okld/streamlit-js-eval.git

@@ -3,16 +3,28 @@ from datetime import date
 import sqlite3
 from streamlit_drawable_canvas import st_canvas
 from PIL import Image
-from streamlit_js_eval import streamlit_js_eval
 import numpy as np
 import io
 import os
-import json
 
-# ✅ 전체 레이아웃을 넓게 설정
+# 전체 레이아웃 넓게 설정
 st.set_page_config(page_title="훈련 일지", layout="wide")
 
-# ===================== 테스트 모드 분기 =====================
+# CSS로 캔버스 최대 너비 100% 지정 (반응형)
+st.markdown(
+    """
+    <style>
+    /* st_canvas 내부 canvas 요소의 최대 너비를 100%로 제한 */
+    div[data-testid="stCanvas"] canvas {
+        max-width: 100% !important;
+        height: auto !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+# 테스트 모드 분기
 query_params = st.experimental_get_query_params()
 is_test = query_params.get("test", ["0"])[0] == "1"
 
@@ -26,7 +38,6 @@ if is_test:
     except Exception as e:
         st.error(f"❌ 이미지 로딩 실패: {e}")
     st.stop()
-# ==========================================================
 
 # DB 연결 및 테이블 생성
 conn = sqlite3.connect("diary.db", check_same_thread=False)
@@ -45,7 +56,7 @@ conn.commit()
 
 st.title("⚽ 이윤성 축구 훈련 일지")
 
-# 축구장 배경 이미지 로컬 경로
+# 배경 이미지 경로
 img_path = os.path.join("images", "soccer_field.jpg")
 st.write(f"운영서버 이미지 경로: {img_path}")
 
@@ -55,31 +66,14 @@ canvas_width, canvas_height = 600, 400  # 기본값
 try:
     if os.path.exists(img_path):
         st.write("이미지 파일 존재함.")
-        bg_image = Image.open(img_path).convert("RGBA").transpose(Image.ROTATE_90)
+        bg_image = Image.open(img_path).convert("RGBA")
         st.write("이미지 회전 및 RGBA 변환 완료")
 
-        dims = streamlit_js_eval(js_expressions="""
-            JSON.stringify({
-                width: window.innerWidth || screen.width,
-                height: window.innerHeight || screen.height
-            })
-        """, key="viewport")
+        # 최대 캔버스 너비 고정
+        max_canvas_width = 800
 
-        try:
-            dims_json = dims[0] if isinstance(dims, list) else dims
-            dims_dict = json.loads(dims_json)
-            screen_width = int(dims_dict.get("width", 1000))
-            screen_height = int(dims_dict.get("height", 700))
-        except:
-            screen_width, screen_height = 1000, 700
-
-        st.write(f"📱 감지된 디바이스 화면 크기: {screen_width}x{screen_height}")
-
-        # 📏 이미지 원본 비율 기준으로 캔버스 크기 계산
         img_ratio = bg_image.width / bg_image.height
-
-        max_canvas_width = int(screen_width * 0.95)  # 화면의 95%로 제한
-        canvas_width = max(300, min(max_canvas_width, bg_image.width))
+        canvas_width = min(max_canvas_width, bg_image.width)
         canvas_height = int(canvas_width / img_ratio)
 
         st.write(f"리사이즈 예정: {canvas_width}x{canvas_height}")
@@ -93,7 +87,7 @@ except Exception as e:
 background_for_canvas = bg_image if isinstance(bg_image, Image.Image) else None
 st.write(f"background_for_canvas 타입: {type(background_for_canvas)}")
 
-# 📋 일지 작성 폼
+# 일지 작성 폼
 with st.form("entry_form"):
     diary_date = st.date_input("날짜", value=date.today())
     status = st.radio("오늘 훈련은 어땠나요?", ["아주 좋았어요 😊", "괜찮았어요 🙂", "힘들었어요 😓", "별로였어요 😞"])
@@ -148,7 +142,7 @@ with st.form("entry_form"):
         conn.commit()
         st.success("✅ 일지가 저장되었습니다!")
 
-# 📋 일지 목록
+# 작성된 일지 목록
 st.markdown("---")
 st.subheader("📋 작성된 훈련 일지")
 
