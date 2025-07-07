@@ -1,6 +1,7 @@
 import streamlit as st
 from datetime import date, datetime
-import sqlite3
+import psycopg2
+from psycopg2 import Binary
 from streamlit_drawable_canvas import st_canvas
 from PIL import Image
 import numpy as np
@@ -10,11 +11,11 @@ import socket
 import traceback
 from collections import defaultdict
 
-# 버전 확인용 - pkg_resources 제거하고 권장 방식으로 변경
+# 버전 확인용
 try:
     from importlib.metadata import version
 except ImportError:
-    from importlib_metadata import version  # Python < 3.8 호환용
+    from importlib_metadata import version
 
 # 페이지 설정
 st.set_page_config(page_title="훈련 일지", layout="wide")
@@ -58,11 +59,13 @@ st.components.v1.html("""
 </style>
 """, height=0)
 
+# canvas 버전 체크
 try:
     canvas_version = version("streamlit-drawable-canvas")
 except Exception:
     pass
 
+# 환경 설정
 hostname = socket.gethostname()
 is_prod = "streamlit" in hostname.lower()
 
@@ -79,22 +82,40 @@ if is_test:
         st.error(f"❌ 테스트 이미지 로딩 실패: {e}")
     st.stop()
 
-conn = sqlite3.connect("diary.db", check_same_thread=False)
-cur = conn.cursor()
-cur.execute("""
-CREATE TABLE IF NOT EXISTS diary (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    diary_date TEXT,
-    status TEXT,
-    good TEXT,
-    bad TEXT,
-    drawing BLOB
-)
-""")
-conn.commit()
+# 🔗 Supabase PostgreSQL 연결
+try:
+    conn = psycopg2.connect(
+        host="aws-0-ap-northeast-2.pooler.supabase.com",
+        port=6543,
+        dbname="postgres",
+        user="postgres.cpcgldgyqzvxmsddussr",
+        password="Qwer1234!",  # 👉 여기에 실제 비밀번호 입력
+        sslmode="require"
+    )
+    cur = conn.cursor()
+    st.success("✅ DB 연결 성공")
 
+    # 🔽 테이블 생성은 연결 성공한 후에만 실행
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS diary (
+        id serial PRIMARY KEY,
+        diary_date date,
+        status text,
+        good text,
+        bad text,
+        drawing bytea
+    )
+    """)
+    conn.commit()
+
+except Exception as e:
+    st.error(f"❌ DB 연결 실패 또는 테이블 생성 오류: {e}")
+    st.stop()  # ⚠️ 이후 코드 중단
+
+# 타이틀
 st.markdown("""<h1 style='margin-top: 0;'>⚽ 이윤성 축구 훈련 일지</h1>""", unsafe_allow_html=True)
 
+# 배경 이미지 로딩
 img_path = os.path.join("images", "soccer_field.jpg")
 bg_image = None
 canvas_width, canvas_height = 600, 400
@@ -118,6 +139,7 @@ if isinstance(bg_image, Image.Image):
 else:
     background_for_canvas = None
 
+# 📝 일지 작성 폼
 with st.form("entry_form"):
     diary_date = st.date_input("날짜", value=date.today())
     status = st.radio("오늘 훈련은 어땠나요?", ["아주 좋았어요 😊", "괜찮았어요 🙂", "힘들었어요 😓", "별로였어요 😞"])
@@ -161,29 +183,39 @@ with st.form("entry_form"):
         else:
             st.warning("⚠️ 드로잉 데이터 또는 배경 이미지 없음")
 
-        cur.execute(
-            "INSERT INTO diary (diary_date, status, good, bad, drawing) VALUES (?, ?, ?, ?, ?)",
-            (str(diary_date), status, good, bad, drawing_data)
-        )
-        conn.commit()
-        st.success("✅ 일지가 저장되었습니다!")
+        try:
+            cur.execute(
+                "INSERT INTO diary (diary_date, status, good, bad, drawing) VALUES (%s, %s, %s, %s, %s)",
+                (diary_date, status, good, bad, Binary(drawing_data))
+            )
+            conn.commit()
+            st.success("✅ 일지가 저장되었습니다!")
+        except Exception as e:
+            st.error(f"DB 저장 중 오류 발생: {e}")
+            st.text(traceback.format_exc())
 
+# 📋 일지 목록 조회
 st.markdown("---")
 st.subheader("📋 작성된 훈련 일지")
 
-cur.execute("SELECT id, diary_date, status, good, bad, drawing FROM diary ORDER BY diary_date DESC")
-rows = cur.fetchall()
+try:
+    cur.execute("SELECT id, diary_date, status, good, bad, drawing FROM diary ORDER BY diary_date DESC")
+    rows = cur.fetchall()
+except Exception as e:
+    st.error(f"DB 조회 중 오류 발생: {e}")
+    rows = []
 
 grouped = defaultdict(list)
 for row in rows:
-    dt = datetime.strptime(row[1], "%Y-%m-%d")
+    dt = row[1]  # date 타입
     ym_key = dt.strftime("%Y-%m")
     grouped[ym_key].append(row)
+
+selected_diary = None  # 상세 표시용
 
 for ym in sorted(grouped.keys(), reverse=True):
     dt_obj = datetime.strptime(ym, "%Y-%m")
     with st.expander(f"📆 {dt_obj.year}년 {dt_obj.month}월", expanded=False):
-        selected_id = None
         for r in grouped[ym]:
             toggle_key = f"toggle_{r[0]}"
             if toggle_key not in st.session_state:
@@ -194,29 +226,24 @@ for ym in sorted(grouped.keys(), reverse=True):
                 key=f"btn_{r[0]}"
             ):
                 for other in grouped[ym]:
-                    if other[0] == r[0]:
-                        st.session_state[f"toggle_{other[0]}"] = not st.session_state[f"toggle_{other[0]}"]
-                    else:
-                        st.session_state[f"toggle_{other[0]}"] = False
-                st.rerun()
+                    st.session_state[f"toggle_{other[0]}"] = (other[0] == r[0] and not st.session_state[toggle_key])
+                st.experimental_rerun()
 
             if st.session_state[toggle_key]:
-                st.markdown(f"#### 📅 {r[1]} - {r[2]}")
-                if r[5]:
-                    try:
-                        img = Image.open(io.BytesIO(r[5]))
-                        st.image(img, caption="오늘은 이런 훈련을 했어요", use_column_width=True)
-                    except Exception as e:
-                        st.warning(f"이미지를 불러올 수 없습니다: {e}")
-                else:
-                    st.info("✏️ 드로잉이 없습니다.")
+                selected_diary = r
 
-                st.markdown(f"✅ **잘한 점:**\n\n{r[3]}")
-                st.markdown(f"❌ **못한 점:**\n\n{r[4]}")
+if selected_diary:
+    st.markdown("---")
+    st.subheader(f"📝 {selected_diary[1]} 훈련 일지 상세")
+    st.markdown(f"**상태:** {selected_diary[2]}")
+    st.markdown(f"**잘한 점:**\n{selected_diary[3]}")
+    st.markdown(f"**못한 점:**\n{selected_diary[4]}")
 
-                delete = st.button("🗑️ 삭제", key=f"delete_{r[0]}")
-                if delete:
-                    cur.execute("DELETE FROM diary WHERE id = ?", (r[0],))
-                    conn.commit()
-                    st.success(f"삭제 완료: {r[1]} 일지")
-                    st.experimental_rerun()
+    if selected_diary[5]:
+        try:
+            img = Image.open(io.BytesIO(selected_diary[5]))
+            st.image(img, caption="훈련 그림", use_column_width=True)
+        except Exception as e:
+            st.error(f"그림 표시 중 오류: {e}")
+else:
+    st.info("날짜를 클릭하면 해당 훈련 일지 상세를 볼 수 있습니다.")
