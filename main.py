@@ -93,7 +93,7 @@ try:
         sslmode="require"
     )
     cur = conn.cursor()
-    st.success("✅ DB 연결 성공")
+    #st.success("✅ DB 연결 성공")
 
     # 🔽 테이블 생성은 연결 성공한 후에만 실행
     cur.execute("""
@@ -245,5 +245,19 @@ if selected_diary:
             st.image(img, caption="훈련 그림", use_column_width=True)
         except Exception as e:
             st.error(f"그림 표시 중 오류: {e}")
+
+    # 삭제 버튼 추가
+    if st.button("🗑️ 이 일지 삭제하기"):
+        try:
+            cur.execute("DELETE FROM diary WHERE id = %s", (selected_diary[0],))
+            conn.commit()
+            st.success("✅ 일지가 삭제되었습니다.")
+            # 삭제 후 세션 상태 초기화 및 새로고침
+            for key in list(st.session_state.keys()):
+                if key.startswith("toggle_"):
+                    del st.session_state[key]
+            st.experimental_rerun()
+        except Exception as e:
+            st.error(f"삭제 중 오류 발생: {e}")
 else:
     st.info("날짜를 클릭하면 해당 훈련 일지 상세를 볼 수 있습니다.")
