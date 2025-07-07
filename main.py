@@ -95,14 +95,15 @@ try:
     cur = conn.cursor()
     #st.success("✅ DB 연결 성공")
 
-    # 🔽 테이블 생성은 연결 성공한 후에만 실행
+    # 🔽 테이블 생성: coach_feedback 컬럼 추가
     cur.execute("""
-    CREATE TABLE IF NOT EXISTS diary (
+    CREATE TABLE IF NOT EXISTS diary2 (
         id serial PRIMARY KEY,
         diary_date date,
         status text,
         good text,
         bad text,
+        coach_feedback text,
         drawing bytea
     )
     """)
@@ -162,6 +163,7 @@ with st.form("entry_form"):
 
     good = st.text_area("잘한 점")
     bad = st.text_area("못한 점")
+    coach_feedback = st.text_area("감독/코치님 피드백")  # 추가됨
 
     submitted = st.form_submit_button("작성 완료")
 
@@ -185,8 +187,8 @@ with st.form("entry_form"):
 
         try:
             cur.execute(
-                "INSERT INTO diary (diary_date, status, good, bad, drawing) VALUES (%s, %s, %s, %s, %s)",
-                (diary_date, status, good, bad, Binary(drawing_data))
+                "INSERT INTO diary2 (diary_date, status, good, bad, coach_feedback, drawing) VALUES (%s, %s, %s, %s, %s, %s)",
+                (diary_date, status, good, bad, coach_feedback, Binary(drawing_data))
             )
             conn.commit()
             st.success("✅ 일지가 저장되었습니다!")
@@ -199,7 +201,7 @@ st.markdown("---")
 st.subheader("📋 작성된 훈련 일지")
 
 try:
-    cur.execute("SELECT id, diary_date, status, good, bad, drawing FROM diary ORDER BY diary_date DESC")
+    cur.execute("SELECT id, diary_date, status, good, bad, coach_feedback, drawing FROM diary2 ORDER BY diary_date DESC")
     rows = cur.fetchall()
 except Exception as e:
     st.error(f"DB 조회 중 오류 발생: {e}")
@@ -238,10 +240,11 @@ if selected_diary:
     st.markdown(f"**상태:** {selected_diary[2]}")
     st.markdown(f"**잘한 점:**\n{selected_diary[3]}")
     st.markdown(f"**못한 점:**\n{selected_diary[4]}")
+    st.markdown(f"**코치님 피드백:**\n{selected_diary[5]}")  # 추가됨
 
-    if selected_diary[5]:
+    if selected_diary[6]:
         try:
-            img = Image.open(io.BytesIO(selected_diary[5]))
+            img = Image.open(io.BytesIO(selected_diary[6]))
             st.image(img, caption="훈련 그림", use_column_width=True)
         except Exception as e:
             st.error(f"그림 표시 중 오류: {e}")
@@ -249,7 +252,7 @@ if selected_diary:
     # 삭제 버튼 추가
     if st.button("🗑️ 이 일지 삭제하기"):
         try:
-            cur.execute("DELETE FROM diary WHERE id = %s", (selected_diary[0],))
+            cur.execute("DELETE FROM diary2 WHERE id = %s", (selected_diary[0],))
             conn.commit()
             st.success("✅ 일지가 삭제되었습니다.")
             # 삭제 후 세션 상태 초기화 및 새로고침
